@@ -78,6 +78,8 @@ VERSION:
 		common.EnvPass:     "",
 		common.EnvIP:       "",
 		common.EnvChannels: "",
+		common.EnvAuthUser: "",
+		common.EnvAuthPass: "",
 	}
 
 	log = logger.GetOrCreate("hikvision-control")
