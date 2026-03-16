@@ -14,7 +14,8 @@ type ChannelConfig struct {
 }
 
 type Config struct {
-	Channels []ChannelConfig `toml:"Channels"`
+	ListenAddress string          `toml:"ListenAddress"`
+	Channels      []ChannelConfig `toml:"Channels"`
 }
 
 // LoadConfig parses a TOML file into the Config struct

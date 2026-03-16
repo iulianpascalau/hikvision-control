@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
 	"time"
 
+	"hikvision-control/api"
 	"hikvision-control/internal/common"
 	"hikvision-control/internal/config"
 	"hikvision-control/internal/control"
@@ -159,7 +162,14 @@ func run(ctx *cli.Context) error {
 		return err
 	}
 
-	_ = handler
+	serv := api.NewAPI(handler, envFileContents[common.EnvAuthUser], envFileContents[common.EnvAuthPass])
+
+	go func() {
+		err := serv.Start(cfg.ListenAddress)
+		if err != nil && err != http.ErrServerClosed {
+			log.Error("API Server failed to start", "error", err)
+		}
+	}()
 
 	log.Info("Hikvision control service started")
 
@@ -169,6 +179,14 @@ func run(ctx *cli.Context) error {
 	<-sigs
 
 	log.Info("Application closing, calling Close on all subcomponents...")
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = serv.Stop(ctxTimeout)
+	if err != nil {
+		log.Error("Failed to stop API Server cleanly", "error", err)
+	}
 
 	return nil
 }

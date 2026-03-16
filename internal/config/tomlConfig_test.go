@@ -11,6 +11,8 @@ func TestConfig(t *testing.T) {
 	t.Parallel()
 
 	testString := `
+ListenAddress = "0.0.0.0:8080"
+
 [[Channels]]
     Channel = "0"
 	OkIPAddress = "192.0.2.1"
@@ -23,6 +25,7 @@ func TestConfig(t *testing.T) {
 `
 
 	expectedCfg := Config{
+		ListenAddress: "0.0.0.0:8080",
 		Channels: []ChannelConfig{
 			{
 				Channel:      "0",
