@@ -296,7 +296,7 @@ export const Dashboard: React.FC = () => {
 
       <footer style={{ marginTop: 'auto', paddingTop: '40px', paddingBottom: '16px', textAlign: 'center' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6, letterSpacing: '0.5px' }}>
-          {appVersion ? `Unifi Control Service v${appVersion}` : 'Unifi Control Service'}
+          {appVersion ? `Unifi Control Service ${appVersion}` : 'Unifi Control Service'}
         </p>
       </footer>
 
