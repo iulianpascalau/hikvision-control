@@ -84,6 +84,11 @@ func (a *API) setupRoutes() {
 
 	// Static files serving and React Router fallback
 	if a.frontendPath != "" {
+		// Serve index.html on root
+		a.router.GET("/", func(c *gin.Context) {
+			c.File(fmt.Sprintf("%s/index.html", a.frontendPath))
+		})
+
 		// Serve static files (assets, etc.)
 		a.router.Static("/assets", fmt.Sprintf("%s/assets", a.frontendPath))
 		a.router.StaticFile("/favicon.png", fmt.Sprintf("%s/favicon.png", a.frontendPath))
