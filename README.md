@@ -31,17 +31,18 @@ cd unifi-control/scripts
 
 This script handles:
 1. Backend compilation and systemd service setup.
-2. Frontend build and static file serving.
-3. Automated dependency management (Go, Node.js, NVM).
+2. **Integrated Frontend Build**: Compiles the React UI and configures the Go server to serve it.
+3. Automated dependency management (Go, Node.js).
 
 ### Configuration
 
-Ensure your `config.toml` is configured with your cameras' MAC addresses for auto-discovery:
+Ensure your `config.toml` is configured with your cameras' MAC addresses and the path to the built frontend:
 
 ```toml
 ListenAddress = ":8080"
+FrontendPath = "frontend/dist"
 
-[[Channels]]
+[[Ports]]
 Name = "Garden Camera"
 CameraMAC = "00:11:22:33:44:55" # Auto-discovery
 # SwitchMAC and Port can be omitted if CameraMAC is provided

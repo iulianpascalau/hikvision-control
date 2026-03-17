@@ -1,4 +1,4 @@
-ListenAddress = "0.0.0.0:8080"
+ListenAddress = ":8080"
 FrontendPath = "frontend/dist"
 
 [[Ports]]
