@@ -11,12 +11,16 @@ import (
 	"time"
 
 	"hikvision-control/internal/common"
+
+	logger "github.com/multiversx/mx-chain-logger-go"
 )
 
 const offValue = "off"
 const autoValue = "auto"
 const proxyPrefix = "/proxy/network"
 const cacheDuration = 10 * time.Second
+
+var log = logger.GetOrCreate("unifi-client")
 
 type client struct {
 	url      string
@@ -27,6 +31,9 @@ type client struct {
 
 	tokenMutex sync.Mutex
 	csrfToken  string
+
+	apiPrefixMutex sync.RWMutex
+	apiPrefix      string // To handle UniFi OS proxy paths like /proxy/network
 
 	mutCaching         sync.RWMutex
 	cachedUnifiDevices []common.UnifiDeviceData
@@ -103,6 +110,8 @@ func (c *client) loginWithLock() error {
 	// Capture CSRF token for subsequent requests
 	c.csrfToken = resp.Header.Get("X-CSRF-Token")
 
+	log.Debug("Successfully logged in to UniFi controller")
+
 	return nil
 }
 
@@ -149,7 +158,11 @@ func (c *client) SetPoeMode(switchMAC string, portIdx int, on bool) error {
 }
 
 func (c *client) updateDevice(deviceID string, overrides []map[string]interface{}) error {
-	updateURL := fmt.Sprintf("%s/api/s/%s/rest/device/%s", c.url, c.site, deviceID)
+	c.tokenMutex.Lock()
+	prefix := c.apiPrefix
+	c.tokenMutex.Unlock()
+
+	updateURL := fmt.Sprintf("%s%s/api/s/%s/rest/device/%s", c.url, prefix, c.site, deviceID)
 	payload, _ := json.Marshal(map[string]interface{}{
 		"port_overrides": overrides,
 	})
@@ -181,6 +194,12 @@ func (c *client) updateDevice(deviceID string, overrides []map[string]interface{
 		return fmt.Errorf("failed to update port: status %d", resp.StatusCode)
 	}
 
+	c.mutCaching.Lock()
+	c.lastUpdated = time.Time{} // cache will reset
+	c.mutCaching.Unlock()
+
+	log.Debug("Successfully updated port", "deviceID", deviceID)
+
 	return nil
 }
 
@@ -192,6 +211,7 @@ func (c *client) GetDeviceInfo(mac string) (*common.UnifiDeviceData, error) {
 
 	for _, dev := range devices {
 		if dev.MAC == mac {
+			log.Debug("GetDeviceInfo", "deviceID", dev.DeviceID, "mac", mac)
 			return &dev, nil
 		}
 	}
@@ -225,6 +245,7 @@ func (c *client) GetAllDevices() ([]common.UnifiDeviceData, error) {
 	if err.Error() == "404" {
 		devices, err = c.doGetAllDevices(proxyPrefix)
 		if err == nil {
+			c.setApiPrefix(proxyPrefix)
 			return devices, nil
 		}
 	}
@@ -249,6 +270,7 @@ func (c *client) doGetAllDevices(prefix string) ([]common.UnifiDeviceData, error
 
 	var err error
 	c.cachedUnifiDevices, err = c.doGetAllDevicesFromUnifi(prefix)
+	c.lastUpdated = time.Now()
 
 	return c.cachedUnifiDevices, err
 }
@@ -285,6 +307,8 @@ func (c *client) doGetAllDevicesFromUnifi(prefix string) ([]common.UnifiDeviceDa
 		return nil, err
 	}
 
+	log.Debug("Fetched all devices from the Unifi controller", "count", len(devResp.Data))
+
 	return devResp.Data, nil
 }
 
@@ -296,9 +320,24 @@ func (c *client) IsPoeOn(switchMAC string, portIdx int) (bool, error) {
 
 	for _, port := range dev.PortTable {
 		if port.PortIdx == portIdx {
+			log.Debug("IsPoeOn", "switch MAC", switchMAC, "port index", portIdx, "poe mode", port.PoeMode)
+
 			return port.PoeMode != offValue, nil
 		}
 	}
 
 	return false, fmt.Errorf("port %d not found on switch %s", portIdx, switchMAC)
+}
+
+func (c *client) getApiPrefix() string {
+	c.apiPrefixMutex.RLock()
+	defer c.apiPrefixMutex.RUnlock()
+
+	return c.apiPrefix
+}
+
+func (c *client) setApiPrefix(prefix string) {
+	c.apiPrefixMutex.Lock()
+	c.apiPrefix = prefix
+	c.apiPrefixMutex.Unlock()
 }
