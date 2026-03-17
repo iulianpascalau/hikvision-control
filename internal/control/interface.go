@@ -1,6 +1,11 @@
 package control
 
-type HikvisionHandler interface {
-	GetChannelConfig(channel string) ([]byte, error)
-	UpdateChannelConfig(channel string, payload []byte) error
+import "hikvision-control/internal/common"
+
+type UnifiHandler interface {
+	Login() error
+	SetPoeMode(switchMAC string, portIdx int, on bool) error
+	IsPoeOn(switchMAC string, portIdx int) (bool, error)
+	GetDeviceInfo(mac string) (*common.UnifiDeviceData, error)
+	GetAllDevices() ([]common.UnifiDeviceData, error)
 }

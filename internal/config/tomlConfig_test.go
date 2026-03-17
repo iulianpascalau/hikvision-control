@@ -13,29 +13,33 @@ func TestConfig(t *testing.T) {
 	testString := `
 ListenAddress = "0.0.0.0:8080"
 
-[[Channels]]
-    Channel = "0"
-	OkIPAddress = "192.0.2.1"
-	NokIPAddress = "192.1.2.1"
+[[Ports]]
+	Name = "Camera 0"
+    CameraMAC = "aa:bb:cc:dd:00:00"
+	SwitchMAC = "aa:bb:cc:dd:ee:00"
+	SwitchPort = 0
 
-[[Channels]]
-    Channel = "1"
-	OkIPAddress = "192.0.2.2"
-	NokIPAddress = "192.1.2.2"
+[[Ports]]
+	Name = "Camera 1"
+    CameraMAC = "aa:bb:cc:dd:00:01"
+	SwitchMAC = "aa:bb:cc:dd:ee:01"
+	SwitchPort = 1
 `
 
 	expectedCfg := Config{
 		ListenAddress: "0.0.0.0:8080",
-		Channels: []ChannelConfig{
+		Ports: []PortConfig{
 			{
-				Channel:      "0",
-				OkIPAddress:  "192.0.2.1",
-				NOKIPAddress: "192.1.2.1",
+				Name:       "Camera 0",
+				CameraMAC:  "aa:bb:cc:dd:00:00",
+				SwitchMAC:  "aa:bb:cc:dd:ee:00",
+				SwitchPort: 0,
 			},
 			{
-				Channel:      "1",
-				OkIPAddress:  "192.0.2.2",
-				NOKIPAddress: "192.1.2.2",
+				Name:       "Camera 1",
+				CameraMAC:  "aa:bb:cc:dd:00:01",
+				SwitchMAC:  "aa:bb:cc:dd:ee:01",
+				SwitchPort: 1,
 			},
 		},
 	}

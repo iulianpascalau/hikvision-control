@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,14 +25,14 @@ type MockChannelStatusProvider struct {
 	mock.Mock
 }
 
-func (m *MockChannelStatusProvider) GetChannels() []string {
+func (m *MockChannelStatusProvider) GetPortIDs() []string {
 	args := m.Called()
 	return args.Get(0).([]string)
 }
 
-func (m *MockChannelStatusProvider) GetChannel(channel string) common.ChannelStatus {
-	args := m.Called(channel)
-	return args.Get(0).(common.ChannelStatus)
+func (m *MockChannelStatusProvider) GetPort(portID string) common.PortStatus {
+	args := m.Called(portID)
+	return args.Get(0).(common.PortStatus)
 }
 
 func (m *MockChannelStatusProvider) Set(channel string, active bool) error {
@@ -140,7 +141,7 @@ func TestAPI_GetChannels(t *testing.T) {
 
 	api, mockProvider := setupTestRouter("admin", "password")
 
-	mockProvider.On("GetChannels").Return([]string{"1", "2"})
+	mockProvider.On("GetPortIDs").Return([]string{"1", "2"})
 
 	token := generateValidToken("admin")
 	req, _ := http.NewRequest(http.MethodGet, "/api/channels", nil)
@@ -164,11 +165,11 @@ func TestAPI_GetChannelStatus(t *testing.T) {
 	token := generateValidToken("admin")
 
 	// Success case
-	mockProvider.On("GetChannel", "3").Return(common.ChannelStatus{
-		Name:    "Garden",
-		Channel: "3",
-		Active:  true,
-		Error:   "",
+	mockProvider.On("GetPort", "3").Return(common.PortStatus{
+		Name:   "Garden",
+		PortID: "3",
+		Active: true,
+		Error:  "",
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/channels/3", nil)
@@ -178,16 +179,17 @@ func TestAPI_GetChannelStatus(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var successResp common.ChannelStatus
-	_ = json.Unmarshal(w.Body.Bytes(), &successResp)
+	var successResp common.PortStatus
+	err := json.Unmarshal(w.Body.Bytes(), &successResp)
+	assert.NoError(t, err)
 	assert.Equal(t, "Garden", successResp.Name)
 	assert.Equal(t, true, successResp.Active)
 
 	// Not found case
-	mockProvider.On("GetChannel", "99").Return(common.ChannelStatus{
-		Channel: "99",
-		Name:    "unknown",
-		Error:   "channel not found",
+	mockProvider.On("GetPort", "99").Return(common.PortStatus{
+		PortID: "99",
+		Name:   "unknown",
+		Error:  fmt.Sprintf("port id %s not found", "99"),
 	})
 
 	req2, _ := http.NewRequest(http.MethodGet, "/api/channels/99", nil)

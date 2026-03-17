@@ -1,13 +1,11 @@
 package control
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
 	"hikvision-control/internal/common"
 	"hikvision-control/internal/config"
-	"hikvision-control/internal/unifi"
 
 	"github.com/multiversx/mx-chain-core-go/core/check"
 )
@@ -15,96 +13,128 @@ import (
 const unknownName = "unknown"
 
 type channelsHandler struct {
-	channelIDs    []string
-	channelsAsMap map[string]config.ChannelConfig
-	hikHandler    HikvisionHandler
-	unifiClient   *unifi.Client
+	portIDs     []string
+	portsAsMap  map[string]config.PortConfig
+	unifiClient UnifiHandler
 }
 
-func NewChannelsHandler(cfg config.Config, unifiClient *unifi.Client, hikHandler HikvisionHandler) (*channelsHandler, error) {
-	channelIDs, err := processChannels(cfg.Channels)
-	if err != nil {
-		return nil, err
+func NewChannelsHandler(cfg config.Config, unifiClient UnifiHandler) (*channelsHandler, error) {
+	if check.IfNilReflect(unifiClient) {
+		return nil, errors.New("unifi handler is nil")
 	}
 
-	if check.IfNilReflect(hikHandler) {
-		return nil, errors.New("hikvision handler is nil")
-	}
+	portIDs, mPorts := processPorts(cfg.Ports)
 
 	return &channelsHandler{
-		channelsAsMap: sliceToMap(cfg.Channels),
-		channelIDs:    channelIDs,
-		hikHandler:    hikHandler,
-		unifiClient:   unifiClient,
+		portsAsMap:  mPorts,
+		portIDs:     portIDs,
+		unifiClient: unifiClient,
 	}, nil
 }
 
-func processChannels(channels []config.ChannelConfig) ([]string, error) {
-	m := make(map[string]int)
+func processPorts(channels []config.PortConfig) ([]string, map[string]config.PortConfig) {
+	mPorts := make(map[string]config.PortConfig)
 
 	channelIDs := make([]string, 0, len(channels))
-	for _, ch := range channels {
-		m[ch.Channel]++
-		channelIDs = append(channelIDs, ch.Channel)
+	for i, ch := range channels {
+		portID := fmt.Sprintf("%d", i)
+		channelIDs = append(channelIDs, portID)
+		mPorts[portID] = ch
 	}
 
-	for ch, count := range m {
-		if count > 1 {
-			return nil, fmt.Errorf("channel %s was defined more than once", ch)
-		}
-	}
-
-	return channelIDs, nil
+	return channelIDs, mPorts
 }
 
-func sliceToMap(channels []config.ChannelConfig) map[string]config.ChannelConfig {
-	m := make(map[string]config.ChannelConfig)
-	for _, ch := range channels {
-		m[ch.Channel] = ch
-	}
-
-	return m
+func (h *channelsHandler) GetPortIDs() []string {
+	return h.portIDs
 }
 
-func (h *channelsHandler) GetChannels() []string {
-	return h.channelIDs
-}
-
-func (h *channelsHandler) GetChannel(channel string) common.ChannelStatus {
-	cfg, ok := h.channelsAsMap[channel]
+func (h *channelsHandler) GetPort(portID string) common.PortStatus {
+	cfg, ok := h.portsAsMap[portID]
 	if !ok {
-		return common.ChannelStatus{
-			Name:    unknownName,
-			Channel: channel,
-			Active:  false,
-			Error:   fmt.Sprintf("channel %s not found", channel),
+		return common.PortStatus{
+			Name:   unknownName,
+			PortID: portID,
+			Active: false,
+			Error:  fmt.Sprintf("port id %s not found", portID),
 		}
 	}
 
-	poeOn, err := h.unifiClient.IsPoeOn(cfg.SwitchMAC, cfg.Port)
+	switchMAC, portIdx, err := h.resolveCameraLocation(cfg)
 	if err != nil {
-		return common.ChannelStatus{
-			Name:    cfg.Name,
-			Channel: channel,
-			Active:  false,
-			Error:   fmt.Sprintf("unifi error: %v", err),
+		return common.PortStatus{
+			Name:   cfg.Name,
+			PortID: portID,
+			Active: false,
+			Error:  fmt.Sprintf("discovery error: %v", err),
 		}
 	}
 
-	return common.ChannelStatus{
-		Name:    cfg.Name,
-		Channel: channel,
-		Active:  poeOn,
-		Error:   "",
+	device, err := h.unifiClient.GetDeviceInfo(switchMAC)
+	if err != nil {
+		return common.PortStatus{
+			Name:   cfg.Name,
+			PortID: portID,
+			Active: false,
+			Error:  fmt.Sprintf("unifi error: %v", err),
+		}
+	}
+
+	for _, port := range device.PortTable {
+		if port.PortIdx == portIdx {
+			return common.PortStatus{
+				Name:       cfg.Name,
+				PortID:     portID,
+				Active:     port.PoeMode != "off",
+				PoePower:   port.PoePower,
+				PoeCurrent: port.PoeCurrent,
+				PoeVoltage: port.PoeVoltage,
+				PoeClass:   port.PoeClass,
+				Error:      "",
+			}
+		}
+	}
+
+	return common.PortStatus{
+		Name:   cfg.Name,
+		PortID: portID,
+		Active: false,
+		Error:  fmt.Sprintf("port %d not found on switch %s", portIdx, switchMAC),
 	}
 }
 
 // Set updates the channel IP addresses on a specified channel with a provided bool value
-func (h *channelsHandler) Set(channel string, active bool) error {
-	cfg, ok := h.channelsAsMap[channel]
+func (h *channelsHandler) Set(portID string, active bool) error {
+	cfg, ok := h.portsAsMap[portID]
 	if !ok {
-		return fmt.Errorf("channel %s not found", channel)
+		return fmt.Errorf("port %s not found", portID)
 	}
 
-	return h.unifiClient.SetPoeMode(cfg.SwitchMAC, cfg.Port, active)
+	switchMAC, portIdx, err := h.resolveCameraLocation(cfg)
+	if err != nil {
+		return err
+	}
+
+	return h.unifiClient.SetPoeMode(switchMAC, portIdx, active)
+}
+
+func (h *channelsHandler) resolveCameraLocation(cfg config.PortConfig) (string, int, error) {
+	if cfg.CameraMAC == "" {
+		return cfg.SwitchMAC, cfg.SwitchPort, nil
+	}
+
+	devices, err := h.unifiClient.GetAllDevices()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to fetch devices for discovery: %w", err)
+	}
+
+	for _, dev := range devices {
+		for _, port := range dev.PortTable {
+			if port.LastConnection.MAC == cfg.CameraMAC {
+				return dev.MAC, port.PortIdx, nil
+			}
+		}
+	}
+
+	return "", 0, fmt.Errorf("camera with MAC %s not found on any switch port", cfg.CameraMAC)
 }

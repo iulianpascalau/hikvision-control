@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Video, AlertCircle, X, Loader2 } from 'lucide-react';
+import { LogOut, Video, AlertCircle, X, Loader2, RefreshCw } from 'lucide-react';
 import { getChannels, getChannelStatus, setChannelStatus } from '../api';
 
 interface ChannelStatus {
   name: string;
   channel: string;
   status: boolean;
+  poe_power?: string;
+  poe_current?: string;
+  poe_voltage?: string;
+  poe_class?: string;
   error?: string;
 }
 
@@ -18,6 +22,13 @@ export const Dashboard: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedError, setSelectedError] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState('');
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const token = localStorage.getItem('auth_token') || '';
 
@@ -26,14 +37,14 @@ export const Dashboard: React.FC = () => {
     navigate('/login');
   };
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!token) {
       navigate('/login');
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const channelIds = await getChannels(token);
       
       const promises = channelIds.map((id: string) => 
@@ -42,6 +53,10 @@ export const Dashboard: React.FC = () => {
             channel: id,
             name: data.name || `Channel ${id}`,
             status: data.status,
+            poe_power: data.poe_power,
+            poe_current: data.poe_current,
+            poe_voltage: data.poe_voltage,
+            poe_class: data.poe_class,
             error: data.error && data.error !== "" ? data.error : undefined
           }))
           .catch(err => ({ 
@@ -66,7 +81,17 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Auto-refresh every minute
+    const interval = setInterval(() => {
+      loadData(silentAutoRefresh);
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [token]);
+
+  // Small helper to avoid shadowed variable issues in closure
+  const silentAutoRefresh = true;
 
   const toggleChannel = async (id: string, currentStatus: boolean) => {
     // Optimistic UI update
@@ -76,6 +101,8 @@ export const Dashboard: React.FC = () => {
 
     try {
       await setChannelStatus(token, id, !currentStatus);
+      // Refetch data after toggle to get updated PoE metrics (Power, Current, etc.)
+      await loadData(true);
     } catch (error: any) {
       // Revert on failure
       setChannels(prev => prev.map(ch => 
@@ -107,8 +134,8 @@ export const Dashboard: React.FC = () => {
       
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '24px', borderBottom: '1px solid var(--glass-border)', marginBottom: '32px' }} className="animate-fade-in">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', letterSpacing: '0.5px' }}>Network NVR</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Camera Control System</p>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', letterSpacing: '0.5px' }}>Unifi PoE</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Unifi Control System</p>
         </div>
         
         <button 
@@ -184,6 +211,33 @@ export const Dashboard: React.FC = () => {
                 </label>
               </div>
 
+              {/* Stats Section */}
+              {ch.status && ch.poe_power && (
+                <div style={{ 
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                  gap: '12px', background: 'rgba(255, 255, 255, 0.03)', 
+                  padding: '16px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)',
+                  marginTop: '4px'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Power</span>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>{ch.poe_power} W</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Voltage</span>
+                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{ch.poe_voltage} V</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current</span>
+                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{ch.poe_current} mA</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Class</span>
+                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{ch.poe_class || 'N/A'}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Error Ribbon */}
               {ch.error && (
                 <div 
@@ -249,6 +303,43 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Refresh Button */}
+      <button 
+        onClick={() => loadData(false)}
+        className="glass-card"
+        style={{
+          position: 'fixed',
+          bottom: windowWidth < 640 ? '16px' : '32px',
+          right: windowWidth < 640 ? '16px' : '32px',
+          width: windowWidth < 640 ? '48px' : '64px',
+          height: windowWidth < 640 ? '48px' : '64px',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--primary)',
+          cursor: 'pointer',
+          zIndex: 900,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          border: '1px solid var(--glass-border)',
+          transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          padding: 0
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+          e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 210, 255, 0.3)';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+          e.currentTarget.style.background = 'var(--glass-bg)';
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
+        }}
+        title="Refresh Status"
+      >
+        <RefreshCw size={windowWidth < 640 ? 20 : 28} className={isLoading ? "animate-spin" : ""} />
+      </button>
 
     </div>
   );

@@ -7,16 +7,16 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-type ChannelConfig struct {
-	Channel   string `toml:"Channel"`
-	Name      string `toml:"Name"`
-	SwitchMAC string `toml:"SwitchMAC"`
-	Port      int    `toml:"Port"`
+type PortConfig struct {
+	Name       string `toml:"Name"`
+	CameraMAC  string `toml:"CameraMAC"` // Optional: If provided, SwitchMAC and SwitchPort will be discovered
+	SwitchMAC  string `toml:"SwitchMAC"`
+	SwitchPort int    `toml:"SwitchPort"`
 }
 
 type Config struct {
-	ListenAddress string          `toml:"ListenAddress"`
-	Channels      []ChannelConfig `toml:"Channels"`
+	ListenAddress string       `toml:"ListenAddress"`
+	Ports         []PortConfig `toml:"Ports"`
 }
 
 // LoadConfig parses a TOML file into the Config struct

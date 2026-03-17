@@ -42,7 +42,7 @@ export const Login: React.FC = () => {
         <header style={{ textAlign: 'center', marginBottom: '40px' }} className="animate-fade-in">
           <Shield color="var(--primary)" size={48} style={{ marginBottom: '16px' }} />
           <h1 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '8px', letterSpacing: '0.5px' }}>
-            Hikvision Control
+            Unifi Control
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '18px', letterSpacing: '1px' }}>
             Secure Access Panel

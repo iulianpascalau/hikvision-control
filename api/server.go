@@ -140,17 +140,17 @@ func (a *API) authMiddleware() gin.HandlerFunc {
 }
 
 func (a *API) getChannels(c *gin.Context) {
-	channels := a.channelsHandler.GetChannels()
-	// Just return channel ids as requested
-	c.JSON(http.StatusOK, channels)
+	ports := a.channelsHandler.GetPortIDs()
+	// Just return port ids as requested
+	c.JSON(http.StatusOK, ports)
 }
 
 func (a *API) getChannelStatus(c *gin.Context) {
 	channelID := c.Param("id")
-	status := a.channelsHandler.GetChannel(channelID)
+	status := a.channelsHandler.GetPort(channelID)
 
-	if status.Error == "channel not found" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Channel not found"})
+	if status.Error != "" && (status.Error == fmt.Sprintf("port id %s not found", channelID)) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Port not found"})
 		return
 	}
 

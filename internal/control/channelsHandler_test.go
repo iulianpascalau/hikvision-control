@@ -1,8 +1,6 @@
 package control
 
 import (
-	"errors"
-	"fmt"
 	"testing"
 
 	"hikvision-control/internal/common"
@@ -13,270 +11,150 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getMockConfig() config.Config {
-	return config.Config{
-		Channels: []config.ChannelConfig{
-			{
-				Channel:      "6",
-				OkIPAddress:  "192.0.2.1",
-				NOKIPAddress: "192.1.2.1",
-			},
-		},
-	}
-}
-
-func getMockResponse(channel string, name string, ip string) []byte {
-	return []byte(fmt.Sprintf(`
-<?xml version="1.0" encoding="UTF-8" ?>
-<InputProxyChannel version="1.0" xmlns="http://www.hikvision.com/ver20/XMLSchema">
-  <id>%s</id>
-  <name>%s</name>
-  <sourceInputPortDescriptor>
-  <proxyProtocol>HIKVISION</proxyProtocol>
-  <addressingFormatType>ipaddress</addressingFormatType>
-  <ipAddress>%s</ipAddress>
-  <managePortNo>8000</managePortNo>
-  <srcInputPort>1</srcInputPort>
-  <userName>admin</userName>
-  <streamType>auto</streamType>
-  <model>DS-2CD2T63G0-I5</model>
-  <serialNumber>DS-2CD2T63G0-AABBCC</serialNumber>
-  <firmwareVersion>V1.0.0 build 123456</firmwareVersion>
-  <deviceID></deviceID>
-  </sourceInputPortDescriptor>
-  <enableAnr>false</enableAnr>
-  <enableTiming>true</enableTiming>
-  <devIndex>11111111-2222-3333-4444-555555555555</devIndex>
-  <twoWayAudioChannelIDList>
-    <twoWayAudioChannelID>6001</twoWayAudioChannelID>
-  </twoWayAudioChannelIDList>
-</InputProxyChannel>
-`, channel, name, ip))
-}
-
-func getErrorResponse() error {
-	return errors.New(`
-unexpected status code: 401, body: <!DOCTYPE html>
-<head>
-    <title>Unauthorized</title>
-    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-</head>
-<body>
-<h2>Access Error: 401 -- Unauthorized</h2>
-<pre></pre>
-</body>
-</html>
-`)
-}
-
 func TestNewChannelsHandler(t *testing.T) {
 	t.Parallel()
 
-	t.Run("no channels should not error", func(t *testing.T) {
+	t.Run("nil unifi handler should error", func(t *testing.T) {
 		cfg := config.Config{}
-		hikHandler := &testsCommon.HikvisionHandlerStub{}
-		handler, err := NewChannelsHandler(cfg, "password", hikHandler)
+		handler, err := NewChannelsHandler(cfg, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unifi handler is nil")
+		assert.Nil(t, handler)
+	})
+	t.Run("no ports should not error", func(t *testing.T) {
+		cfg := config.Config{}
+		handler, err := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{})
 		require.NoError(t, err)
 		assert.NotNil(t, handler)
 	})
-	t.Run("2 channels with the same channel value should error", func(t *testing.T) {
+	t.Run("should work with ports", func(t *testing.T) {
 		cfg := config.Config{
-			Channels: []config.ChannelConfig{
+			Ports: []config.PortConfig{
 				{
-					Channel: "1",
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 				{
-					Channel: "1",
+					Name:       "Port 2",
+					SwitchMAC:  "mac1",
+					SwitchPort: 2,
 				},
 			},
 		}
-		hikHandler := &testsCommon.HikvisionHandlerStub{}
-		handler, err := NewChannelsHandler(cfg, "password", hikHandler)
-		require.Error(t, err)
-		require.Equal(t, "channel 1 was defined more than once", err.Error())
-		assert.Nil(t, handler)
+		handler, err := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{})
+		require.NoError(t, err)
+		assert.NotNil(t, handler)
+
+		assert.Equal(t, []string{"0", "1"}, handler.GetPortIDs())
 	})
-	t.Run("nil hikvision handler should error", func(t *testing.T) {
-		cfg := config.Config{}
-		handler, err := NewChannelsHandler(cfg, "password", nil)
+}
+
+func TestChannelsHandler_SetChannel(t *testing.T) {
+	t.Parallel()
+
+	t.Run("port not found should error", func(t *testing.T) {
+		cfg := config.Config{
+			Ports: []config.PortConfig{
+				{
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
+				},
+			},
+		}
+		handler, _ := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{})
+
+		err := handler.Set("missing", true)
 		require.Error(t, err)
-		require.Equal(t, "hikvision handler is nil", err.Error())
-		assert.Nil(t, handler)
+		require.Contains(t, err.Error(), "port missing not found")
 	})
 	t.Run("should work", func(t *testing.T) {
 		cfg := config.Config{
-			Channels: []config.ChannelConfig{
+			Ports: []config.PortConfig{
 				{
-					Channel: "1",
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
-				{
-					Channel: "2",
-				},
 			},
 		}
-		hikHandler := &testsCommon.HikvisionHandlerStub{}
-		handler, err := NewChannelsHandler(cfg, "password", hikHandler)
-		require.NoError(t, err)
-		assert.NotNil(t, handler)
-
-		assert.Equal(t, []string{"1", "2"}, handler.GetChannels())
-	})
-
-}
-
-func TestChannelsHandler_GetChannel(t *testing.T) {
-	t.Parallel()
-
-	t.Run("channel not found", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				require.Fail(t, "should not be called")
-				return nil, nil
+		setWasCalled := false
+		handler, _ := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{
+			SetPoeModeHandler: func(switchMAC string, portIdx int, on bool) error {
+				require.Equal(t, "mac1", switchMAC)
+				require.Equal(t, 1, portIdx)
+				require.True(t, on)
+				setWasCalled = true
+				return nil
 			},
-		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
+		})
 
-		status := handler.GetChannel("7")
-		expectedStatus := common.ChannelStatus{
-			Name:    unknownName,
-			Channel: "7",
-			Active:  false,
-			Error:   "channel 7 not found",
-		}
-
-		assert.Equal(t, expectedStatus, status)
-	})
-	t.Run("get channel errors", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				require.Equal(t, "6", channel)
-				return nil, getErrorResponse()
-			},
-		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
-
-		status := handler.GetChannel("6")
-		expectedStatus := common.ChannelStatus{
-			Name:    unknownName,
-			Channel: "6",
-			Active:  false,
-			Error:   getErrorResponse().Error(),
-		}
-
-		assert.Equal(t, expectedStatus, status)
-	})
-	t.Run("channel active", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				require.Equal(t, "6", channel)
-				return getMockResponse(channel, "inside", "192.0.2.1"), nil
-			},
-		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
-
-		status := handler.GetChannel("6")
-		expectedStatus := common.ChannelStatus{
-			Name:    "inside",
-			Channel: "6",
-			Active:  true,
-			Error:   "",
-		}
-
-		assert.Equal(t, expectedStatus, status)
-	})
-	t.Run("channel not active", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				require.Equal(t, "6", channel)
-				return getMockResponse(channel, "inside", "192.0.0.1"), nil
-			},
-		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
-
-		status := handler.GetChannel("6")
-		expectedStatus := common.ChannelStatus{
-			Name:    "inside",
-			Channel: "6",
-			Active:  false,
-			Error:   "",
-		}
-
-		assert.Equal(t, expectedStatus, status)
+		err := handler.Set("0", true)
+		require.Nil(t, err)
+		assert.True(t, setWasCalled)
 	})
 }
 
-func TestChannelsHandler_UpdateChannel(t *testing.T) {
+func TestChannelsHandler_GetPort(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("expected error")
-	t.Run("channel not found", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				require.Fail(t, "should not be called")
-				return nil, nil
-			},
-			UpdateChannelConfigHandler: func(channel string, payload []byte) error {
-				require.Fail(t, "should not be called")
-				return nil
+	t.Run("port not found should error", func(t *testing.T) {
+		cfg := config.Config{
+			Ports: []config.PortConfig{
+				{
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
+				},
 			},
 		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
+		handler, _ := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{})
 
-		err = handler.Set("7", true)
-		assert.Error(t, err)
-		assert.Equal(t, "channel 7 not found", err.Error())
+		expectedStatus := common.PortStatus{
+			Name:   unknownName,
+			PortID: "missing",
+			Active: false,
+			Error:  "port id missing not found",
+		}
+
+		status := handler.GetPort("missing")
+		assert.Equal(t, expectedStatus, status)
 	})
-	t.Run("get channel config errors", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				return nil, expectedErr
-			},
-			UpdateChannelConfigHandler: func(channel string, payload []byte) error {
-				require.Fail(t, "should not be called")
-				return nil
-			},
-		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
-
-		err = handler.Set("6", true)
-		assert.Equal(t, expectedErr, err)
-	})
-	t.Run("should set (true)", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				return getMockResponse(channel, "inside", "192.0.0.0"), nil
-			},
-			UpdateChannelConfigHandler: func(channel string, payload []byte) error {
-				assert.Contains(t, string(payload), "192.0.2.1")
-				return nil
+	t.Run("should work", func(t *testing.T) {
+		cfg := config.Config{
+			Ports: []config.PortConfig{
+				{
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
+				},
 			},
 		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
+		handler, _ := NewChannelsHandler(cfg, &testsCommon.UnifiHandlerStub{
+			GetDeviceInfoHandler: func(mac string) (*common.UnifiDeviceData, error) {
+				return &common.UnifiDeviceData{
+					MAC: mac,
+					PortTable: []common.UnifiPortStatus{
+						{
+							PortIdx:  1,
+							PoeMode:  "auto",
+							PoePower: "5.0",
+						},
+					},
+				}, nil
+			},
+		})
 
-		err = handler.Set("6", true)
-		assert.Nil(t, err)
-	})
-	t.Run("should set (false)", func(t *testing.T) {
-		hikHandler := &testsCommon.HikvisionHandlerStub{
-			GetChannelConfigHandler: func(channel string) ([]byte, error) {
-				return getMockResponse(channel, "inside", "192.0.0.0"), nil
-			},
-			UpdateChannelConfigHandler: func(channel string, payload []byte) error {
-				assert.Contains(t, string(payload), "192.1.2.1")
-				return nil
-			},
+		expectedStatus := common.PortStatus{
+			Name:     "Port 1",
+			PortID:   "0",
+			Active:   true,
+			PoePower: "5.0",
+			Error:    "",
 		}
-		handler, err := NewChannelsHandler(getMockConfig(), "password", hikHandler)
-		require.NoError(t, err)
 
-		err = handler.Set("6", false)
-		assert.Nil(t, err)
+		status := handler.GetPort("0")
+		assert.Equal(t, expectedStatus, status)
 	})
 }
