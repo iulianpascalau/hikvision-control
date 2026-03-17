@@ -7,16 +7,13 @@ BACKEND_SERVICE="unifi-control-backend"
 FRONTEND_SERVICE="unifi-control-frontend"
 
 # Check argument
-BRANCH=$1
-if [ -z "$BRANCH" ]; then
-    echo "Usage: $0 <branch_or_tag>"
+VERSION_ARG=$1
+if [ -z "$VERSION_ARG" ]; then
+    echo "Usage: $0 <branch_or_tag_or_latest>"
     echo "Example: $0 main"
+    echo "Example: $0 latest"
     exit 1
 fi
-
-echo "=========================================="
-echo "Starting deployment for branch: $BRANCH"
-echo "=========================================="
 
 # Navigate to project directory
 if [ ! -d "$PROJECT_DIR" ]; then
@@ -24,6 +21,22 @@ if [ ! -d "$PROJECT_DIR" ]; then
     exit 1
 fi
 cd "$PROJECT_DIR"
+
+# Resolve "latest" if needed
+BRANCH=$VERSION_ARG
+if [ "$VERSION_ARG" == "latest" ]; then
+    echo "Fetching latest tag..."
+    git fetch --all --tags
+    BRANCH=$(git describe --tags --abbrev=0 $(git rev-list --tags --max-count=1))
+    if [ -z "$BRANCH" ]; then
+        echo "Error: No tags found. Cannot determine 'latest'."
+        exit 1
+    fi
+fi
+
+echo "=========================================="
+echo "Starting deployment for: $BRANCH"
+echo "=========================================="
 
 # 1. Stop Services
 echo "Step 1: Stopping services..."
