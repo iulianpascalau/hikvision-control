@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Video, AlertCircle, X, Loader2 } from 'lucide-react';
+import { LogOut, Video, AlertCircle, X, Loader2, RefreshCw } from 'lucide-react';
 import { getChannels, getChannelStatus, setChannelStatus } from '../api';
 
 interface ChannelStatus {
@@ -22,6 +22,13 @@ export const Dashboard: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedError, setSelectedError] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState('');
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const token = localStorage.getItem('auth_token') || '';
 
@@ -30,14 +37,14 @@ export const Dashboard: React.FC = () => {
     navigate('/login');
   };
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!token) {
       navigate('/login');
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const channelIds = await getChannels(token);
       
       const promises = channelIds.map((id: string) => 
@@ -74,7 +81,17 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Auto-refresh every minute
+    const interval = setInterval(() => {
+      loadData(silentAutoRefresh);
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [token]);
+
+  // Small helper to avoid shadowed variable issues in closure
+  const silentAutoRefresh = true;
 
   const toggleChannel = async (id: string, currentStatus: boolean) => {
     // Optimistic UI update
@@ -84,6 +101,8 @@ export const Dashboard: React.FC = () => {
 
     try {
       await setChannelStatus(token, id, !currentStatus);
+      // Refetch data after toggle to get updated PoE metrics (Power, Current, etc.)
+      await loadData(true);
     } catch (error: any) {
       // Revert on failure
       setChannels(prev => prev.map(ch => 
@@ -284,6 +303,43 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Refresh Button */}
+      <button 
+        onClick={() => loadData(false)}
+        className="glass-card"
+        style={{
+          position: 'fixed',
+          bottom: windowWidth < 640 ? '16px' : '32px',
+          right: windowWidth < 640 ? '16px' : '32px',
+          width: windowWidth < 640 ? '48px' : '64px',
+          height: windowWidth < 640 ? '48px' : '64px',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--primary)',
+          cursor: 'pointer',
+          zIndex: 900,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          border: '1px solid var(--glass-border)',
+          transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          padding: 0
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+          e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 210, 255, 0.3)';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+          e.currentTarget.style.background = 'var(--glass-bg)';
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
+        }}
+        title="Refresh Status"
+      >
+        <RefreshCw size={windowWidth < 640 ? 20 : 28} className={isLoading ? "animate-spin" : ""} />
+      </button>
 
     </div>
   );
