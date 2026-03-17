@@ -60,7 +60,17 @@ func (h *channelsHandler) GetPort(portID string) common.PortStatus {
 		}
 	}
 
-	device, err := h.unifiClient.GetDeviceInfo(cfg.SwitchMAC)
+	switchMAC, portIdx, err := h.resolveCameraLocation(cfg)
+	if err != nil {
+		return common.PortStatus{
+			Name:   cfg.Name,
+			PortID: portID,
+			Active: false,
+			Error:  fmt.Sprintf("discovery error: %v", err),
+		}
+	}
+
+	device, err := h.unifiClient.GetDeviceInfo(switchMAC)
 	if err != nil {
 		return common.PortStatus{
 			Name:   cfg.Name,
@@ -71,7 +81,7 @@ func (h *channelsHandler) GetPort(portID string) common.PortStatus {
 	}
 
 	for _, port := range device.PortTable {
-		if port.PortIdx == cfg.Port {
+		if port.PortIdx == portIdx {
 			return common.PortStatus{
 				Name:       cfg.Name,
 				PortID:     portID,
@@ -89,7 +99,7 @@ func (h *channelsHandler) GetPort(portID string) common.PortStatus {
 		Name:   cfg.Name,
 		PortID: portID,
 		Active: false,
-		Error:  fmt.Sprintf("port %d not found on switch %s", cfg.Port, cfg.SwitchMAC),
+		Error:  fmt.Sprintf("port %d not found on switch %s", portIdx, switchMAC),
 	}
 }
 
@@ -100,5 +110,31 @@ func (h *channelsHandler) Set(portID string, active bool) error {
 		return fmt.Errorf("port %s not found", portID)
 	}
 
-	return h.unifiClient.SetPoeMode(cfg.SwitchMAC, cfg.Port, active)
+	switchMAC, portIdx, err := h.resolveCameraLocation(cfg)
+	if err != nil {
+		return err
+	}
+
+	return h.unifiClient.SetPoeMode(switchMAC, portIdx, active)
+}
+
+func (h *channelsHandler) resolveCameraLocation(cfg config.PortConfig) (string, int, error) {
+	if cfg.CameraMAC == "" {
+		return cfg.SwitchMAC, cfg.Port, nil
+	}
+
+	devices, err := h.unifiClient.GetAllDevices()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to fetch devices for discovery: %w", err)
+	}
+
+	for _, dev := range devices {
+		for _, port := range dev.PortTable {
+			if port.LastConnection.MAC == cfg.CameraMAC {
+				return dev.MAC, port.PortIdx, nil
+			}
+		}
+	}
+
+	return "", 0, fmt.Errorf("camera with MAC %s not found on any switch port", cfg.CameraMAC)
 }

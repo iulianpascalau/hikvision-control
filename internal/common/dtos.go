@@ -11,14 +11,20 @@ type PortStatus struct {
 	Error      string `json:"error"`
 }
 
+type UnifiLastConnection struct {
+	MAC      string `json:"mac"`
+	LastSeen int64  `json:"last_seen"`
+}
+
 type UnifiPortStatus struct {
-	PortIdx    int    `json:"port_idx"`
-	Up         bool   `json:"up"`
-	PoeMode    string `json:"poe_mode"`
-	PoePower   string `json:"poe_power"`
-	PoeCurrent string `json:"poe_current"`
-	PoeVoltage string `json:"poe_voltage"`
-	PoeClass   string `json:"poe_class"`
+	PortIdx        int                 `json:"port_idx"`
+	Up             bool                `json:"up"`
+	PoeMode        string              `json:"poe_mode"`
+	PoePower       string              `json:"poe_power"`
+	PoeCurrent     string              `json:"poe_current"`
+	PoeVoltage     string              `json:"poe_voltage"`
+	PoeClass       string              `json:"poe_class"`
+	LastConnection UnifiLastConnection `json:"last_connection"`
 }
 
 type UnifiDeviceResponse struct {

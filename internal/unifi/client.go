@@ -15,16 +15,22 @@ import (
 
 const offValue = "off"
 const autoValue = "auto"
+const proxyPrefix = "/proxy/network"
+const cacheDuration = 10 * time.Second
 
 type client struct {
-	url       string
-	username  string
-	password  string
-	site      string
-	http      *http.Client
-	csrfToken string
-	apiPrefix string // To handle UniFi OS proxy paths like /proxy/network
-	sync.Mutex
+	url      string
+	username string
+	password string
+	site     string
+	http     *http.Client
+
+	tokenMutex sync.Mutex
+	csrfToken  string
+
+	mutCaching         sync.RWMutex
+	cachedUnifiDevices []common.UnifiDeviceData
+	lastUpdated        time.Time
 }
 
 func NewClient(url, username, password, site string) *client {
@@ -45,8 +51,8 @@ func NewClient(url, username, password, site string) *client {
 }
 
 func (c *client) ensureLoggedIn() error {
-	c.Lock()
-	defer c.Unlock()
+	c.tokenMutex.Lock()
+	defer c.tokenMutex.Unlock()
 
 	if c.csrfToken != "" {
 		return nil
@@ -56,10 +62,16 @@ func (c *client) ensureLoggedIn() error {
 }
 
 func (c *client) Login() error {
-	c.Lock()
-	defer c.Unlock()
+	c.tokenMutex.Lock()
+	defer c.tokenMutex.Unlock()
 
 	return c.loginWithLock()
+}
+
+func (c *client) setToken(token string) {
+	c.tokenMutex.Lock()
+	c.csrfToken = token
+	c.tokenMutex.Unlock()
 }
 
 func (c *client) loginWithLock() error {
@@ -137,7 +149,7 @@ func (c *client) SetPoeMode(switchMAC string, portIdx int, on bool) error {
 }
 
 func (c *client) updateDevice(deviceID string, overrides []map[string]interface{}) error {
-	updateURL := fmt.Sprintf("%s%s/api/s/%s/rest/device/%s", c.url, c.apiPrefix, c.site, deviceID)
+	updateURL := fmt.Sprintf("%s/api/s/%s/rest/device/%s", c.url, c.site, deviceID)
 	payload, _ := json.Marshal(map[string]interface{}{
 		"port_overrides": overrides,
 	})
@@ -157,10 +169,9 @@ func (c *client) updateDevice(deviceID string, overrides []map[string]interface{
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		// Session might have expired, clear token and retry once
-		c.Lock()
-		c.csrfToken = ""
-		c.Unlock()
-		if err := c.ensureLoggedIn(); err != nil {
+		c.setToken("")
+		err = c.ensureLoggedIn()
+		if err != nil {
 			return err
 		}
 		return c.updateDevice(deviceID, overrides)
@@ -174,43 +185,76 @@ func (c *client) updateDevice(deviceID string, overrides []map[string]interface{
 }
 
 func (c *client) GetDeviceInfo(mac string) (*common.UnifiDeviceData, error) {
-	if err := c.ensureLoggedIn(); err != nil {
+	devices, err := c.GetAllDevices()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, dev := range devices {
+		if dev.MAC == mac {
+			return &dev, nil
+		}
+	}
+
+	return nil, fmt.Errorf("device with MAC %s not found in stat/device list", mac)
+}
+
+func (c *client) GetAllDevices() ([]common.UnifiDeviceData, error) {
+	err := c.ensureLoggedIn()
+	if err != nil {
 		return nil, err
 	}
 
 	// First request attempt
-	dev, err := c.doGetDeviceInfo(mac)
+	devices, err := c.doGetAllDevices("")
 	if err == nil {
-		return dev, nil
+		return devices, nil
 	}
 
 	// If 401 Unauthorized, session might have expired
 	if err.Error() == "401" {
-		c.Lock()
-		c.csrfToken = ""
-		c.Unlock()
-		if err := c.ensureLoggedIn(); err != nil {
+		c.setToken("")
+		err = c.ensureLoggedIn()
+		if err != nil {
 			return nil, err
 		}
-		return c.doGetDeviceInfo(mac)
+		return c.doGetAllDevices("")
 	}
 
 	// If 404 and we haven't tried the prefix, try with /proxy/network
-	if (err.Error() == "404") && c.apiPrefix == "" {
-		c.apiPrefix = "/proxy/network"
-		dev, err = c.doGetDeviceInfo(mac)
+	if err.Error() == "404" {
+		devices, err = c.doGetAllDevices(proxyPrefix)
 		if err == nil {
-			return dev, nil
+			return devices, nil
 		}
-		// Reset if it still fails so we don't stick with a broken prefix
-		c.apiPrefix = ""
 	}
 
 	return nil, err
 }
 
-func (c *client) doGetDeviceInfo(mac string) (*common.UnifiDeviceData, error) {
-	apiURL := fmt.Sprintf("%s%s/api/s/%s/stat/device", c.url, c.apiPrefix, c.site)
+func (c *client) doGetAllDevices(prefix string) ([]common.UnifiDeviceData, error) {
+	c.mutCaching.RLock()
+	if time.Since(c.lastUpdated) < cacheDuration && len(c.cachedUnifiDevices) > 0 {
+		c.mutCaching.RUnlock()
+		return c.cachedUnifiDevices, nil
+	}
+	c.mutCaching.RUnlock()
+
+	c.mutCaching.Lock()
+	defer c.mutCaching.Unlock()
+
+	if time.Since(c.lastUpdated) < cacheDuration && len(c.cachedUnifiDevices) > 0 {
+		return c.cachedUnifiDevices, nil
+	}
+
+	var err error
+	c.cachedUnifiDevices, err = c.doGetAllDevicesFromUnifi(prefix)
+
+	return c.cachedUnifiDevices, err
+}
+
+func (c *client) doGetAllDevicesFromUnifi(prefix string) ([]common.UnifiDeviceData, error) {
+	apiURL := fmt.Sprintf("%s%s/api/s/%s/stat/device", c.url, prefix, c.site)
 	req, _ := http.NewRequest(http.MethodGet, apiURL, nil)
 	req.Header.Set("X-CSRF-Token", c.csrfToken)
 	req.Header.Set("Referer", c.url)
@@ -235,28 +279,13 @@ func (c *client) doGetDeviceInfo(mac string) (*common.UnifiDeviceData, error) {
 		return nil, fmt.Errorf("failed to get devices: status %d", resp.StatusCode)
 	}
 
-	// JLS: debug when we need to see the response body because na update renamed the fields
-	//bodyBytes, err := io.ReadAll(resp.Body)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//ddd := string(bodyBytes)
-	//fmt.Println(ddd)
-
 	var devResp common.UnifiDeviceResponse
 	err = json.NewDecoder(resp.Body).Decode(&devResp)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, dev := range devResp.Data {
-		if dev.MAC == mac {
-			return &dev, nil
-		}
-	}
-
-	return nil, fmt.Errorf("device with MAC %s not found in stat/device list", mac)
+	return devResp.Data, nil
 }
 
 func (c *client) IsPoeOn(switchMAC string, portIdx int) (bool, error) {

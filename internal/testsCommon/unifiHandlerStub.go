@@ -9,6 +9,7 @@ type UnifiHandlerStub struct {
 	SetPoeModeHandler    func(switchMAC string, portIdx int, on bool) error
 	IsPoeOnHandler       func(switchMAC string, portIdx int) (bool, error)
 	GetDeviceInfoHandler func(mac string) (*common.UnifiDeviceData, error)
+	GetAllDevicesHandler func() ([]common.UnifiDeviceData, error)
 }
 
 func (stub *UnifiHandlerStub) Login() error {
@@ -37,4 +38,11 @@ func (stub *UnifiHandlerStub) GetDeviceInfo(mac string) (*common.UnifiDeviceData
 		return stub.GetDeviceInfoHandler(mac)
 	}
 	return &common.UnifiDeviceData{}, nil
+}
+
+func (stub *UnifiHandlerStub) GetAllDevices() ([]common.UnifiDeviceData, error) {
+	if stub.GetAllDevicesHandler != nil {
+		return stub.GetAllDevicesHandler()
+	}
+	return []common.UnifiDeviceData{}, nil
 }
