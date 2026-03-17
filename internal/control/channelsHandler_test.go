@@ -31,14 +31,14 @@ func TestNewChannelsHandler(t *testing.T) {
 		cfg := config.Config{
 			Ports: []config.PortConfig{
 				{
-					Name:      "Port 1",
-					SwitchMAC: "mac1",
-					Port:      1,
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 				{
-					Name:      "Port 2",
-					SwitchMAC: "mac1",
-					Port:      2,
+					Name:       "Port 2",
+					SwitchMAC:  "mac1",
+					SwitchPort: 2,
 				},
 			},
 		}
@@ -57,9 +57,9 @@ func TestChannelsHandler_SetChannel(t *testing.T) {
 		cfg := config.Config{
 			Ports: []config.PortConfig{
 				{
-					Name:      "Port 1",
-					SwitchMAC: "mac1",
-					Port:      1,
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 			},
 		}
@@ -73,9 +73,9 @@ func TestChannelsHandler_SetChannel(t *testing.T) {
 		cfg := config.Config{
 			Ports: []config.PortConfig{
 				{
-					Name:      "Port 1",
-					SwitchMAC: "mac1",
-					Port:      1,
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 			},
 		}
@@ -103,9 +103,9 @@ func TestChannelsHandler_GetPort(t *testing.T) {
 		cfg := config.Config{
 			Ports: []config.PortConfig{
 				{
-					Name:      "Port 1",
-					SwitchMAC: "mac1",
-					Port:      1,
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 			},
 		}
@@ -125,9 +125,9 @@ func TestChannelsHandler_GetPort(t *testing.T) {
 		cfg := config.Config{
 			Ports: []config.PortConfig{
 				{
-					Name:      "Port 1",
-					SwitchMAC: "mac1",
-					Port:      1,
+					Name:       "Port 1",
+					SwitchMAC:  "mac1",
+					SwitchPort: 1,
 				},
 			},
 		}

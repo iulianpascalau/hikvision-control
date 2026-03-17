@@ -120,7 +120,7 @@ func (h *channelsHandler) Set(portID string, active bool) error {
 
 func (h *channelsHandler) resolveCameraLocation(cfg config.PortConfig) (string, int, error) {
 	if cfg.CameraMAC == "" {
-		return cfg.SwitchMAC, cfg.Port, nil
+		return cfg.SwitchMAC, cfg.SwitchPort, nil
 	}
 
 	devices, err := h.unifiClient.GetAllDevices()

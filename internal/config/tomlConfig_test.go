@@ -15,27 +15,31 @@ ListenAddress = "0.0.0.0:8080"
 
 [[Ports]]
 	Name = "Camera 0"
+    CameraMAC = "aa:bb:cc:dd:00:00"
 	SwitchMAC = "aa:bb:cc:dd:ee:00"
-	Port = 0
+	SwitchPort = 0
 
 [[Ports]]
 	Name = "Camera 1"
+    CameraMAC = "aa:bb:cc:dd:00:01"
 	SwitchMAC = "aa:bb:cc:dd:ee:01"
-	Port = 1
+	SwitchPort = 1
 `
 
 	expectedCfg := Config{
 		ListenAddress: "0.0.0.0:8080",
 		Ports: []PortConfig{
 			{
-				Name:      "Camera 0",
-				SwitchMAC: "aa:bb:cc:dd:ee:00",
-				Port:      0,
+				Name:       "Camera 0",
+				CameraMAC:  "aa:bb:cc:dd:00:00",
+				SwitchMAC:  "aa:bb:cc:dd:ee:00",
+				SwitchPort: 0,
 			},
 			{
-				Name:      "Camera 1",
-				SwitchMAC: "aa:bb:cc:dd:ee:01",
-				Port:      1,
+				Name:       "Camera 1",
+				CameraMAC:  "aa:bb:cc:dd:00:01",
+				SwitchMAC:  "aa:bb:cc:dd:ee:01",
+				SwitchPort: 1,
 			},
 		},
 	}

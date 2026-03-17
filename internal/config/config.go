@@ -8,10 +8,10 @@ import (
 )
 
 type PortConfig struct {
-	Name      string `toml:"Name"`
-	CameraMAC string `toml:"CameraMAC"` // Optional: If provided, SwitchMAC and Port will be discovered
-	SwitchMAC string `toml:"SwitchMAC"`
-	Port      int    `toml:"Port"`
+	Name       string `toml:"Name"`
+	CameraMAC  string `toml:"CameraMAC"` // Optional: If provided, SwitchMAC and SwitchPort will be discovered
+	SwitchMAC  string `toml:"SwitchMAC"`
+	SwitchPort int    `toml:"SwitchPort"`
 }
 
 type Config struct {

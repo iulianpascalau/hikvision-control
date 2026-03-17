@@ -134,8 +134,8 @@ export const Dashboard: React.FC = () => {
       
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '24px', borderBottom: '1px solid var(--glass-border)', marginBottom: '32px' }} className="animate-fade-in">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', letterSpacing: '0.5px' }}>Network NVR</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Camera Control System</p>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', letterSpacing: '0.5px' }}>Unifi PoE</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Unifi Control System</p>
         </div>
         
         <button 

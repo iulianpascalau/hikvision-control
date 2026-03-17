@@ -1,11 +1,7 @@
 ListenAddress = "0.0.0.0:8080"
 
-[[Channels]]
-    Channel = "0"
-	OkIPAddress = "192.0.2.1"
-	NokIPAddress = "192.1.2.1"
-
-[[Channels]]
-    Channel = "1"
-	OkIPAddress = "192.0.2.2"
-	NokIPAddress = "192.1.2.2"
+[[Ports]]
+	Name = "Cam Inside"
+	CameraMAC = "aa:bb:cc:dd:ee:ff" # Optional: If provided, SwitchMAC and SwitchPort will be discovered
+	SwitchMAC = "00:11:22:33:44:55"
+	SwitchPort = 0

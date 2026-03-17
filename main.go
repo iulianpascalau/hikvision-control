@@ -62,7 +62,7 @@ VERSION:
 			", if set to *:INFO the logs for all packages will have the INFO level. However, if set to *:INFO,api:DEBUG" +
 			" the logs for all packages will have the INFO level, excepting the api package which will receive a DEBUG" +
 			" log level.",
-		Value: "*:" + logger.LogInfo.String(),
+		Value: "*:" + logger.LogDebug.String(),
 	}
 	// logFile is used when the log output needs to be logged in a file
 	logSaveFile = cli.BoolFlag{
@@ -86,13 +86,13 @@ VERSION:
 		common.EnvUnifiSite: "",
 	}
 
-	log = logger.GetOrCreate("hikvision-control")
+	log = logger.GetOrCreate("unifi-control")
 )
 
 func main() {
 	app := cli.NewApp()
 	cli.AppHelpTemplate = proxyHelpTemplate
-	app.Name = "Hikvision control service"
+	app.Name = "Unifi control service"
 	app.Version = fmt.Sprintf("%s/%s/%s-%s", appVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	app.Usage = "This is the entry point for starting a new service for controlling Hikvision cameras"
 	app.Flags = []cli.Flag{
