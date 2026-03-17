@@ -53,7 +53,7 @@ echo "Backend build successful."
 
 # 4. Update Frontend
 echo "Step 4: Updating Frontend..."
-cd ../../frontend
+cd frontend
 # Install dependencies
 npm install
 # Note: The service currently runs 'npm run dev', so we don't 'build' for production serving yet.
