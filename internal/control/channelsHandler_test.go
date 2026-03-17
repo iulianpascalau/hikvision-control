@@ -3,9 +3,9 @@ package control
 import (
 	"testing"
 
-	"hikvision-control/internal/common"
-	"hikvision-control/internal/config"
-	"hikvision-control/internal/testsCommon"
+	"unifi-control/internal/common"
+	"unifi-control/internal/config"
+	"unifi-control/internal/testsCommon"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -1,7 +1,7 @@
 package testsCommon
 
 import (
-	"hikvision-control/internal/common"
+	"unifi-control/internal/common"
 )
 
 type UnifiHandlerStub struct {

@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"hikvision-control/api"
-	"hikvision-control/internal/common"
-	"hikvision-control/internal/config"
-	"hikvision-control/internal/control"
-	"hikvision-control/internal/unifi" // Added for UniFi client
+	"unifi-control/api"
+	"unifi-control/internal/common"
+	"unifi-control/internal/config"
+	"unifi-control/internal/control"
+	"unifi-control/internal/unifi" // Added for UniFi client
 
 	"github.com/multiversx/mx-chain-core-go/core/check"
 	logger "github.com/multiversx/mx-chain-logger-go"
@@ -94,7 +94,7 @@ func main() {
 	cli.AppHelpTemplate = proxyHelpTemplate
 	app.Name = "Unifi control service"
 	app.Version = fmt.Sprintf("%s/%s/%s-%s", appVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	app.Usage = "This is the entry point for starting a new service for controlling Hikvision cameras"
+	app.Usage = "This is the entry point for starting a new service for controlling PoE ports on Unifi devices."
 	app.Flags = []cli.Flag{
 		logLevel,
 		logSaveFile,
@@ -145,7 +145,7 @@ func run(ctx *cli.Context) error {
 		}
 	}
 
-	log.Info("Starting Hikvision control service", "version", appVersion, "pid", os.Getpid())
+	log.Info("Starting Unifi control service", "version", appVersion, "pid", os.Getpid())
 
 	err = common.ReadEnvFile(envFile, envFileContents)
 	if err != nil {
@@ -183,7 +183,7 @@ func run(ctx *cli.Context) error {
 		}
 	}()
 
-	log.Info("Hikvision control service started")
+	log.Info("Unifi control service started")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

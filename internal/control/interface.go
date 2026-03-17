@@ -1,6 +1,6 @@
 package control
 
-import "hikvision-control/internal/common"
+import "unifi-control/internal/common"
 
 type UnifiHandler interface {
 	Login() error

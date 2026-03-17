@@ -1,2 +1,2 @@
-# hikvision-control
-Hikvision camera control app
+# unifi-control
+Unifi PoE control app

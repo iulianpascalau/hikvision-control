@@ -1,4 +1,4 @@
-module hikvision-control
+module unifi-control
 
 go 1.25.0
 
@@ -9,7 +9,6 @@ require github.com/multiversx/mx-chain-logger-go v1.1.0
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/icholy/digest v1.1.0
 	github.com/multiversx/mx-chain-core-go v1.4.0
 	github.com/pelletier/go-toml v1.9.3
 	github.com/stretchr/testify v1.11.1

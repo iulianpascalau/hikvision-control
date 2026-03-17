@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"hikvision-control/internal/common"
-	"hikvision-control/internal/config"
+	"unifi-control/internal/common"
+	"unifi-control/internal/config"
 
 	"github.com/multiversx/mx-chain-core-go/core/check"
 )

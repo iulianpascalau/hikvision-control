@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"hikvision-control/internal/common"
+	"unifi-control/internal/common"
 
 	logger "github.com/multiversx/mx-chain-logger-go"
 )
