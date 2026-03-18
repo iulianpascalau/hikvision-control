@@ -92,8 +92,6 @@ func (client *httpClientWithLogin) loginNoLock() error {
 
 	log.Debug("Successfully logged in to UniFi controller")
 
-	time.Sleep(time.Second * 2)
-
 	return nil
 }
 
