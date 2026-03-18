@@ -169,15 +169,20 @@ func (c *client) GetAllDevices() ([]common.UnifiDeviceData, error) {
 
 func (c *client) getAllDevices() ([]common.UnifiDeviceData, error) {
 	// First request attempt with current known prefix
-	devices, err := c.doGetAllDevices("")
+	devices, err := c.doGetAllDevices(c.getApiPrefix())
 	if err == nil {
-		c.setApiPrefix("")
 		return devices, nil
 	}
 
-	devices, err = c.doGetAllDevices(proxyPrefix)
+	// toggle prefix
+	alternatePrefix := proxyPrefix
+	if c.getApiPrefix() == proxyPrefix {
+		alternatePrefix = ""
+	}
+
+	devices, err = c.doGetAllDevices(alternatePrefix)
 	if err == nil {
-		c.setApiPrefix(proxyPrefix)
+		c.setApiPrefix(alternatePrefix)
 		return devices, nil
 	}
 
