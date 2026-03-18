@@ -27,9 +27,10 @@ type httpClientWithLogin struct {
 func newHTTPClientWithLogin(url string, username string, password string) *httpClientWithLogin {
 	jar, _ := cookiejar.New(nil)
 	return &httpClientWithLogin{
-		url:      url,
-		username: username,
-		password: password,
+		url:       url,
+		username:  username,
+		password:  password,
+		csrfToken: "",
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 			Jar:     jar,

@@ -20,7 +20,7 @@ clean-tests:
 tests: clean-tests
 	go test ./...
 
-build:
+build-backend:
 	go build -v -ldflags="-X main.appVersion=$(shell git describe --tags --long --dirty) -X main.commitID=$(shell git rev-parse HEAD)"
 
 lint-install:
@@ -39,11 +39,13 @@ install-frontend:
 	[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
 	nvm exec 22.12.0 npm install
 
-run-frontend: install-frontend
+build-frontend: install-frontend
 	cd frontend && \
 	export NVM_DIR="$$HOME/.nvm" && \
 	[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
-	nvm exec 22.12.0 npm run dev
+	nvm exec 22.12.0 npm run build
 
-run-backend: build
+build: build-frontend build-backend
+
+run: build
 	./unifi-control --log-level *:DEBUG
