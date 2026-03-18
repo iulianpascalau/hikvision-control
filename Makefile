@@ -35,15 +35,23 @@ run-lint:
 
 install-frontend:
 	cd frontend && \
-	export NVM_DIR="$$HOME/.nvm" && \
-	[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
-	nvm exec 22.12.0 npm install
+	if [ -s "$$HOME/.nvm/nvm.sh" ]; then \
+		export NVM_DIR="$$HOME/.nvm" && \
+		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
+		nvm exec 22.12.0 npm install; \
+	else \
+		npm install; \
+	fi
 
 build-frontend: install-frontend
 	cd frontend && \
-	export NVM_DIR="$$HOME/.nvm" && \
-	[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
-	nvm exec 22.12.0 npm run build
+	if [ -s "$$HOME/.nvm/nvm.sh" ]; then \
+		export NVM_DIR="$$HOME/.nvm" && \
+		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
+		nvm exec 22.12.0 npm run build; \
+	else \
+		npm run build; \
+	fi
 
 build: build-frontend build-backend
 
