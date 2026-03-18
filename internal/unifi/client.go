@@ -169,8 +169,9 @@ func (c *client) GetAllDevices() ([]common.UnifiDeviceData, error) {
 
 func (c *client) getAllDevices() ([]common.UnifiDeviceData, error) {
 	// First request attempt with current known prefix
-	devices, err := c.doGetAllDevices(c.getApiPrefix())
+	devices, err := c.doGetAllDevices("")
 	if err == nil {
+		c.setApiPrefix("")
 		return devices, nil
 	}
 
@@ -282,6 +283,7 @@ func (c *client) getApiPrefix() string {
 
 func (c *client) setApiPrefix(prefix string) {
 	c.apiPrefixMutex.Lock()
+	log.Debug("Setting API prefix", "prefix", prefix)
 	c.apiPrefix = prefix
 	c.apiPrefixMutex.Unlock()
 }
