@@ -35,7 +35,7 @@ func TestClient_Login(t *testing.T) {
 	client := NewClient(ts.URL, "user", "pass", "default")
 	err := client.Login()
 	assert.NoError(t, err)
-	assert.Equal(t, "fake-token", client.csrfToken)
+	assert.Equal(t, "fake-token", client.httpClient.csrfToken)
 }
 
 func TestClient_GetDeviceInfo(t *testing.T) {
@@ -66,7 +66,7 @@ func TestClient_GetDeviceInfo(t *testing.T) {
 	defer ts.Close()
 
 	client := NewClient(ts.URL, "user", "pass", "default")
-	client.csrfToken = "fake-token"
+	client.httpClient.csrfToken = "fake-token"
 	info, err := client.GetDeviceInfo(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, mac, info.MAC)
