@@ -146,40 +146,38 @@ func (c *client) GetDeviceInfo(mac string) (*common.UnifiDeviceData, error) {
 }
 
 func (c *client) GetAllDevices() ([]common.UnifiDeviceData, error) {
-	// First request attempt with current known prefix
-	currentPrefix := c.getApiPrefix()
-	devices, err := c.doGetAllDevices(currentPrefix)
+	devices, err := c.getAllDevices()
 	if err == nil {
 		return devices, nil
 	}
 
-	// If 401 Unauthorized or 403 Forbidden, session might have expired or CSRF is wrong
-	if err.Error() == "401" || err.Error() == "403" {
-		log.Debug("Auth error on GetAllDevices, attempting re-login", "status", err.Error())
-		err = c.httpClient.Login()
-		if err != nil {
-			return nil, err
-		}
-		// Retry with current prefix after fresh login
-		devices, err = c.doGetAllDevices(currentPrefix)
-		if err == nil {
-			return devices, nil
-		}
+	log.Debug("Auth error on GetAllDevices, attempting re-login", "status", err.Error())
+	err = c.httpClient.Login()
+	if err != nil {
+		return nil, err
 	}
 
-	// If targeting /proxy/network or root still fails with 404, try the other one
-	if err.Error() == "404" || err.Error() == "401" || err.Error() == "403" {
-		alternatePrefix := ""
-		if currentPrefix == "" {
-			alternatePrefix = proxyPrefix
-		}
+	devices, err = c.getAllDevices()
+	if err == nil {
+		return devices, nil
+	}
 
-		log.Debug("Retrying with alternate prefix", "previous", currentPrefix, "new", alternatePrefix)
-		devices, err = c.doGetAllDevices(alternatePrefix)
-		if err == nil {
-			c.setApiPrefix(alternatePrefix)
-			return devices, nil
-		}
+	log.Debug("Failed to re-login, returning error", "error", err.Error())
+
+	return nil, err
+}
+
+func (c *client) getAllDevices() ([]common.UnifiDeviceData, error) {
+	// First request attempt with current known prefix
+	devices, err := c.doGetAllDevices(c.getApiPrefix())
+	if err == nil {
+		return devices, nil
+	}
+
+	devices, err = c.doGetAllDevices(proxyPrefix)
+	if err == nil {
+		c.setApiPrefix(proxyPrefix)
+		return devices, nil
 	}
 
 	return nil, err
