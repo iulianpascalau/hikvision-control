@@ -35,7 +35,7 @@ run-lint:
 
 install-frontend:
 	cd frontend && \
-	if [ -s "$$HOME/.nvm/nvm.sh" ]; then \
+	if [ -z "$$GITHUB_ACTIONS" ] && [ -s "$$HOME/.nvm/nvm.sh" ]; then \
 		export NVM_DIR="$$HOME/.nvm" && \
 		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
 		nvm exec 22.12.0 npm install; \
@@ -45,7 +45,7 @@ install-frontend:
 
 build-frontend: install-frontend
 	cd frontend && \
-	if [ -s "$$HOME/.nvm/nvm.sh" ]; then \
+	if [ -z "$$GITHUB_ACTIONS" ] && [ -s "$$HOME/.nvm/nvm.sh" ]; then \
 		export NVM_DIR="$$HOME/.nvm" && \
 		[ -s "$$NVM_DIR/nvm.sh" ] && \. "$$NVM_DIR/nvm.sh" && \
 		nvm exec 22.12.0 npm run build; \
